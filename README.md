@@ -1,2 +1,438 @@
-# joshmilespsych.github.io
-website
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+        <title>Translation Task</title>
+        <link rel="stylesheet" type="text/css" href=".\task.css">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    </head>
+    <body>
+        <!-- Setup/ID Lightbox -->
+        <div id="setupLightbox" class="lightbox-overlay show">
+            <div class="lightbox-container">
+                <p>We would like to ask you to create a short code that you will remember, so that if you complete this survey again in the future, we can match your answers without knowing your name or student ID.</p>
+                <p>Your code will be made from:</p>
+                <ul>
+                    <li>First two letters of your mother's first name (or the main female caregiver in your early life)</li>
+                    <li>Two digits of your birthday (01–31)</li>
+                    <li>First letter of the town or city where you were born</li>
+                    <li>Number of older siblings you have</li>
+                </ul>
+                <p>Example:</p>
+                <ul>
+                    <li>Mother's first name = Sarah → SA</li>
+                    <li>Day of birth = 9 → 09 </li>
+                    <li>Birth city = Cardiff → C </li>
+                    <li>Number of older siblings = 1 → 1 </li>
+                    <li>Code = SA09C1 </li>
+                </ul>
+                <p>This code is anonymous – it does not identify you directly – but it helps us combine your answers over time.</p>
+                <div class="identifier-form">
+                    <div class="form-field">
+                        <label for="field1">Mother's first name</label>
+                        <input type="text" id="field1" placeholder="Enter value">
+                    </div>
+                    <div class="form-field">
+                        <label for="field2">Day of birth (DD)</label>
+                        <input type="text" id="field2" placeholder="Enter value">
+                    </div>
+                    <div class="form-field">
+                        <label for="field3">City of birth</label>
+                        <input type="text" id="field3" placeholder="Enter value">
+                    </div>
+                    <div class="form-field">
+                        <label for="field4">Number of older siblings</label>
+                        <input type="text" id="field4" placeholder="Enter value">
+                    </div>
+                    <div class="identifier-result hidden" id="identifierResult">
+                        User ID: <strong id="generatedId"></strong>
+                    </div>
+                </div>
+                <button type="button" class="lightbox-btn lightbox-btn-primary" id="startTaskBtn" onclick="startTask()" disabled>Start Task</button>
+            </div>
+        </div>
+
+        <!-- End of Study Lightbox -->
+        <div id="endLightbox" class="lightbox-overlay">
+            <div class="lightbox-container">
+                <div class="lightbox-icon">✓</div>
+                <h2>Task Complete</h2>
+                <p>You have finished this part of the task, please click the close button below and download the JSON file. Please return and continue with the survey and upload this file.</p>
+                <p>Your identifier code is: <strong><span id="finalIdentifier"></span></strong></p>
+                <button type="button" class="lightbox-btn lightbox-btn-primary" onclick="completeStudy()">Close</button>
+            </div>
+        </div>
+
+        <div id="background-default">
+
+            <div id="header">
+
+            </div>
+            <div class="task-text">
+                <p><strong>Text to be translated:</strong> <span id="translate-text"></span></p>
+            </div>
+            <hr>
+            <div class="content-primary-assessor">
+                <div id="ai-translator" class="card">
+                    <div class="card-header">
+                        <h2>AI Translator <span class="expand-icon">▼</span></h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-content-inner">
+                            <textarea id="aiInputBox" placeholder="Enter text here..."></textarea>
+                            <button type="button" id="aiCopyBtn">Copy text to be translated</button>
+                            <button type="button" id="aiTranslateBtn">Translate</button>
+                            <textarea id="aiOutputBox" readonly placeholder="Translated text will appear here..."></textarea>
+                            <button type="button" id="aiSubmitBtn">Submit</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="manual-translator" class="card">
+                    <div class="card-header">
+                        <h2>Manual Translator <span class="expand-icon">▼</span></h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-content-inner">
+                            <div id="dictionaryContainer">
+                                <div id="dictionary1"></div>
+                                <div id="dictionary2"></div>
+                            </div>
+                            <textarea id="manualInputBox" placeholder="Enter your manual translation here..."></textarea>
+                            <button type="button" id="manualSubmitBtn">Submit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // ===== URL PARAMETERS =====
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // ===== FINAL IDENTIFIER CALCULATION =====
+            const stageIdentifierMap = {
+                'start': 'bananas',
+                'middle': 'mangos',
+                'end': 'free'
+            };
+            const stage = urlParams.get('stage') || 'start';
+            const finalIdentifier = stageIdentifierMap[stage] || 'ERR_INVALID_CODE';
+
+            // ===== CONSENT FORM & COUNTER =====
+            let translationCount = 0;
+            const TOTAL_TRANSLATIONS = 11;
+
+            // ===== CARD CLICK TRACKING =====
+            let translationData = [];
+            let attentionCheckPassed = false;
+            let currentTranslationId = null;
+            let currentTextKey = null;
+            let cardClickedTime = null;
+            let cardClickedType = null;
+
+            // ===== TRANSLATION TEXTS =====
+            const texts = {
+                "attention check: please type 'attention check' in the manual translator": "attention check: please type 'attention check' in the manual translator",
+                "wlorp, clorp mlorp qlorp": "hello, i am qlorp",
+                "clorp mlorp ilorp rlorp": "i am from space",
+                "clorp klorp plorp ylorp": "i come in peace",
+                "ylorp slorp nlorp glorp clorp": "peace is essential to me",
+                "xlorp elorp olorp": "one, two, three",
+                "clorp mlorp ilorp blorp olorp zlorp": "i am from the third star",
+                "dlorp ulorp elorp alorp tlorp": "there are two of us",
+                "ylorp glorp tlorp": "peace to us",
+                "florp tlorp hlorp ylorp": "let us find peace",
+                "rlorp llorp jlorp zlorp": "space has many stars",
+                
+            };
+            const textKeys = Object.keys(texts);
+
+            // ===== DICTIONARIES =====
+            const alienDictionary1 = {
+                "alorp": "Of",
+                "blorp": "The",
+                "clorp": "I/Me",
+                "dlorp": "There",
+                "elorp": "Two/Second",
+                "florp": "Let",
+                "glorp": "To",
+                "hlorp": "Find",
+                "ilorp": "From",
+                "jlorp": "Many",
+                "klorp": "Come",
+                "llorp": "From",
+              
+            };
+
+            const alienDictionary2 = {
+                "mlorp": "Am",
+                "nlorp": "Essential",
+                "olorp": "Three/Third",
+                "plorp": "In",
+                "qlorp": "Qlorp / Qlorp's (name)",
+                "rlorp": "Space",
+                "slorp": "Is",
+                "tlorp": "Us",
+                "ulorp": "Are",
+                "wlorp": "Hello",
+                "xlorp": "One/First",
+                "ylorp": "Peace/Peaceful",
+                "zlorp": "Star/Stars"
+
+            };
+
+            // ===== TRANSLATION ORDER =====
+            function shuffleArray(array) {
+                const shuffled = [...array];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                return shuffled;
+            }
+
+            const translationOrder = shuffleArray(Array.from({length: 11}, (_, i) => i));
+            let currentOrderIndex = 0;
+
+            // ===== DOM ELEMENTS =====
+            const fields = [
+                document.getElementById('field1'),
+                document.getElementById('field2'),
+                document.getElementById('field3'),
+                document.getElementById('field4')
+            ];
+            const identifierResult = document.getElementById('identifierResult');
+            const generatedIdentifier = document.getElementById('generatedId');
+            const text = document.getElementById('translate-text');
+            const card1 = document.getElementById('ai-translator');
+            const card2 = document.getElementById('manual-translator');
+
+            // ===== INITIALIZATION =====
+            window.addEventListener('DOMContentLoaded', function() {
+                document.getElementById('finalIdentifier').textContent = finalIdentifier;
+                populateDictionaries();
+                loadRandomText();
+            });
+
+            // ===== IDENTIFIER GENERATION =====
+            function generateIdentifier() {
+                const vals = fields.map(f => f.value.trim());
+                
+                if (vals.every(v => v.length > 0)) {
+                    const out = vals[0].substring(0, 2) + vals[1] + vals[2].substring(0, 1) + vals[3];
+                    generatedIdentifier.textContent = out.toUpperCase();
+                    identifierResult.classList.remove('hidden');
+                    document.getElementById('startTaskBtn').disabled = false;
+                } else {
+                    identifierResult.classList.add('hidden');
+                    document.getElementById('startTaskBtn').disabled = true;
+                }
+            }
+
+            fields.forEach(field => {
+                field.addEventListener('input', generateIdentifier);
+            });
+
+            // ===== DICTIONARY POPULATION =====
+            function populateDictionaries() {
+                const dict1Content = Object.entries(alienDictionary1)
+                    .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+                    .join('<br>');
+                const dict2Content = Object.entries(alienDictionary2)
+                    .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+                    .join('<br>');
+
+                document.getElementById('dictionary1').innerHTML = dict1Content;
+                document.getElementById('dictionary2').innerHTML = dict2Content;
+            }
+
+            // ===== TASK FLOW =====
+            function startTask() {
+                document.getElementById('setupLightbox').classList.remove('show');
+                document.getElementById('background-default').style.display = 'block';
+                currentOrderIndex = 0;
+                loadRandomText();
+            }
+
+            function loadRandomText() {
+                if (translationCount >= 11) {
+                    return;
+                }
+
+                const textIndex = translationOrder[currentOrderIndex];
+                currentOrderIndex++;
+                const final = textKeys[textIndex];
+
+                text.textContent = final;
+                currentTranslationId = textIndex;
+                currentTextKey = final;
+                cardClickedType = null;
+                cardClickedTime = null;
+            }
+
+            function updateTranslationCounter() {
+                translationCount++;
+                console.log("translationCount incremented to: " + translationCount);
+
+                if (translationCount === 11) {
+                    document.getElementById('finalIdentifier').textContent = finalIdentifier;
+                    
+                    const dataOutput = {
+                        userId: generatedIdentifier.textContent || "NO_ID",
+                        stage: stage,
+                        translations: translationData
+                    };
+                    
+                    document.getElementById('endLightbox').classList.add('show');
+                }
+            }
+
+            function completeStudy() {
+                const dataOutput = {
+                    userId: generatedIdentifier.textContent || "NO_ID",
+                    stage: stage,
+                    attentionCheckPassed: attentionCheckPassed,
+                    translations: translationData
+                };
+                
+                const jsonString = JSON.stringify(dataOutput, null, 2);
+                const blob = new Blob([jsonString], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                
+                link.href = url;
+                link.download = `translation_data_${dataOutput.stage}_${dataOutput.userId}_${new Date().getTime()}.json`;
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                console.log("Study completed. Thank you for participating.");
+            }
+
+            // ===== CARD EXPANSION =====
+            card1.querySelector('.card-header').addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                if (cardClickedType === null) {
+                    cardClickedTime = Date.now();
+                    cardClickedType = 'AI';
+                }
+                
+                card1.classList.toggle('expanded');
+            });
+
+            card2.querySelector('.card-header').addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                if (cardClickedType === null) {
+                    cardClickedTime = Date.now();
+                    cardClickedType = 'Manual';
+                }
+                
+                card2.classList.toggle('expanded');
+            });
+
+            // ===== AI TRANSLATOR ACTIONS =====
+            document.getElementById('aiCopyBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                const sourceText = document.getElementById('translate-text').textContent;
+                const inputBox = document.getElementById('aiInputBox');
+                inputBox.value = sourceText;
+                inputBox.focus();
+            });
+
+            document.getElementById('aiTranslateBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                const source = document.getElementById('aiInputBox').value.trim();
+                const output = document.getElementById('aiOutputBox');
+                const button = document.getElementById('aiTranslateBtn');
+                
+                button.disabled = true;
+                button.textContent = 'Translating...';
+                output.value = 'Processing translation...';
+                
+                const delay = Math.random() * 3000 + 2000;
+                
+                setTimeout(() => {
+                    output.value = texts[source] || "No translation found.";
+                    button.disabled = false;
+                    button.textContent = 'Translate';
+                }, delay);
+            });
+
+            document.getElementById('aiSubmitBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                if (translationCount >= 11) {
+                    return;
+                }
+                
+                const submittedText = document.getElementById('aiOutputBox').value;
+                const expectedText = texts[currentTextKey];
+                const isCorrect = submittedText.trim().toLowerCase() === expectedText.trim().toLowerCase();
+                const isAttentionCheck = text.textContent === texts["attention check: please type 'attention check' in the manual translator"];
+                
+                if (isAttentionCheck && submittedText.trim().toLowerCase() === "attention check") {
+                    attentionCheckPassed = true;
+                }
+                
+                const timeElapsed = cardClickedTime !== null ? Date.now() - cardClickedTime : null;
+                const dataEntry = {
+                    translationId: currentTranslationId,
+                    cardClicked: cardClickedType,
+                    timeMs: timeElapsed,
+                    correct: isCorrect
+                };
+                
+                translationData.push(dataEntry);
+                
+                document.getElementById('aiInputBox').value = '';
+                document.getElementById('aiOutputBox').value = '';
+                card1.classList.remove('expanded');
+                
+                updateTranslationCounter();
+                loadRandomText();
+            });
+
+            // ===== MANUAL TRANSLATOR ACTIONS =====
+            document.getElementById('manualSubmitBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                if (translationCount >= 11) {
+                    return;
+                }
+                
+                const submittedText = document.getElementById('manualInputBox').value;
+                const expectedText = texts[currentTextKey];
+                const isCorrect = submittedText.trim().toLowerCase() === expectedText.trim().toLowerCase();
+                const isAttentionCheck = text.textContent === texts["attention check: please type 'attention check' in the manual translator"];
+                
+                if (isAttentionCheck && submittedText.trim().toLowerCase() === "attention check") {
+                    attentionCheckPassed = true;
+                }
+                
+                const timeElapsed = cardClickedTime !== null ? Date.now() - cardClickedTime : null;
+                const dataEntry = {
+                    translationId: currentTranslationId,
+                    cardClicked: cardClickedType,
+                    timeMs: timeElapsed,
+                    correct: isCorrect
+                };
+                
+                translationData.push(dataEntry);
+                
+                document.getElementById('manualInputBox').value = '';
+                card2.classList.remove('expanded');
+                
+                updateTranslationCounter();
+                loadRandomText();
+            });
+        </script>
+    </body>
+</html>
